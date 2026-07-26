@@ -376,7 +376,7 @@ class TestLiteralSettings:
     def test_help_metadata_line(self, capsys):
         RegionConfig(**NO_SOURCES).print_help()
         out = capsys.readouterr().out
-        assert "str | choices: admin, postcode, cresta, nuts | default: admin" in out
+        assert "str | choices: admin, postcode, cresta, nuts | optional (default: admin)" in out
 
     def test_non_str_literal_raises(self):
         class BadLiteral(BaseConfig):
@@ -725,10 +725,10 @@ class TestPrintHelp:
         assert "db:" in out
         assert "api:" in out
         assert "server port" in out
-        assert "int | default: 5432" in out
+        assert "int | optional (default: 5432)" in out
         assert "str | secret | required" in out
         assert "env: SZOTEST_DB_PASSWORD | SZOTEST_DB_PASSWORD_FILE" in out
-        assert "list[str] | default: a,b" in out
+        assert "list[str] | optional (default: a,b)" in out
 
     def test_exact_layout(self, capsys):
         class Small(BaseConfig):
@@ -746,7 +746,7 @@ class TestPrintHelp:
             f"  {'--help':<25}  show this help message and exit\n"
             "\n"
             f"  {'--name':<25}  the name\n"
-            f"  {'':<25}  str | default: 'x y'\n"
+            f"  {'':<25}  str | optional (default: 'x y')\n"
             f"  {'':<25}  env: NAME\n"
             "\n"
             f"  {'--token':<25}  str | secret | required\n"
@@ -878,7 +878,7 @@ class TestBoolFlags:
 
     def test_help_metadata_marks_flag(self, capsys):
         AppConfig(prog="demo", **NO_SOURCES).print_help()
-        assert "bool | flag | default: false" in capsys.readouterr().out
+        assert "bool | flag | optional (default: false)" in capsys.readouterr().out
 
     def test_setting_named_no_something_is_reachable(self):
         class Flags(BaseConfig):
@@ -904,7 +904,7 @@ class TestErrorReport:
             "db:\n"
             "\n"
             f"  {'--db-port':<25}  'abc' is not a valid int\n"
-            f"  {'':<25}  int | default: 5432\n"
+            f"  {'':<25}  int | optional (default: 5432)\n"
             f"  {'':<25}  env: SZOTEST_DB_PORT\n"
             "\n"
             f"  {'--db-password':<25}  required config value not provided\n"

@@ -16,22 +16,7 @@
 
 from typing import Annotated, Literal
 
-from szo import BaseConfig, Secret
-
-
-class DbConfig(BaseConfig):
-    host: Annotated[str, "PostgreSQL server host"] = "localhost"
-    port: Annotated[int, "PostgreSQL server port"] = 5432
-    dbname: Annotated[str, "database name"] = "postgres"
-    user: Annotated[str, "database user"] = "postgres"
-    password: Annotated[Secret[str], "database password"]
-    connection_timeout_in_milliseconds: int = 30000
-
-    def connection_string(self) -> str:
-        return (
-            f"host={self.host} port={self.port} dbname={self.dbname} "
-            f"user={self.user} password={self.password}"
-        )
+from szo import BaseConfig, PostgresConfig, Secret
 
 
 class ApiConfig(BaseConfig):
@@ -46,7 +31,7 @@ class AppConfig(BaseConfig):
     verbose: bool = False
     region: Literal["admin", "postcode", "cresta", "nuts"]
 
-    db: DbConfig = DbConfig(env_prefix="CUSTOM_NESTED_PREFIX", arg_prefix="--custom-nested-prefix")
+    db: PostgresConfig = PostgresConfig(env_prefix="CUSTOM_NESTED_PREFIX", arg_prefix="--custom-nested-prefix")
     api: ApiConfig
 
 
@@ -71,7 +56,7 @@ def main() -> None:
     if config.verbose:
         # repr() masks Secret settings — the whole config is safe to print or log.
         print(f"config: {config!r}")
-    print(f"connecting: {config.db.connection_string().replace(config.db.password, '***')}")
+    print(f"connecting: {config.db.conninfo().replace(config.db.password, '***')}")
 
 
 if __name__ == "__main__":

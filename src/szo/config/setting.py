@@ -51,7 +51,7 @@ class Setting(NamedTuple):
             annotations.append("required")
         else:
             default_text = SECRET_MASK if self.annotation.is_secret else get_value_text(binding.fallback_value)
-            annotations.append(f"default: {shlex.quote(default_text)}")
+            annotations.append(f"optional (default: {shlex.quote(default_text)})")
         return " | ".join(annotations)
 
     @property
