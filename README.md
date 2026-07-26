@@ -91,30 +91,20 @@ Releases are published to PyPI automatically by
 triggered by pushing a version tag. Authentication uses PyPI Trusted
 Publishing (OIDC) — no tokens or passwords are stored anywhere.
 
-1. Bump the version in `src/szo/__init__.py`:
-
-```python
-__version__ = "0.0.3"
-```
-
-2. Commit and push to `main`:
+1. Run the publish script (from `main`, with a clean working tree):
 
 ```console
-git commit -am "Release 0.0.3"
-git push
+./scripts/publish.sh          # patch bump: 0.0.2 -> 0.0.3
+./scripts/publish.sh 0.1.0    # or an explicit version
 ```
 
-3. Tag and push the tag — this is what triggers the release:
+It runs the tests, bumps `__version__` in `src/szo/__init__.py`, commits
+`Release X.Y.Z`, tags `vX.Y.Z`, and pushes — the tag triggers the workflow.
 
-```console
-git tag v0.0.3
-git push --tags
-```
-
-4. Watch the run at
+2. Watch the run at
    [Actions](https://github.com/KubaSzostak/szopy/actions).
 
-5. Verify:
+3. Verify:
 
 ```console
 pip install --upgrade szo
