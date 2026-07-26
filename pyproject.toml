@@ -15,5 +15,12 @@ dependencies = []
 [project.urls]
 Homepage = "https://github.com/KubaSzostak/szopy"
 
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
 [tool.hatch.version]
 path = "src/szo/__init__.py"
