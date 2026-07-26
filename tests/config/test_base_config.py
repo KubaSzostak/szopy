@@ -722,13 +722,25 @@ class TestPrintHelp:
         out = capsys.readouterr().out
         assert "usage: demo" in out
         assert "Test app config." in out
-        assert "db:" in out
-        assert "api:" in out
+        assert "\ndb\n" in out
+        assert "\napi\n" in out
         assert "server port" in out
         assert "int | optional (default: 5432)" in out
         assert "str | secret | required" in out
         assert "env: SZOTEST_DB_PASSWORD | SZOTEST_DB_PASSWORD_FILE" in out
         assert "list[str] | optional (default: a,b)" in out
+
+    def test_nested_docstring_in_section_header(self, capsys):
+        class Documented(BaseConfig):
+            """Section description."""
+
+            value: int = 1
+
+        class App(BaseConfig):
+            section: Documented
+
+        App(**NO_SOURCES).print_help()
+        assert "\nsection\n  Section description.\n" in capsys.readouterr().out
 
     def test_exact_layout(self, capsys):
         class Small(BaseConfig):
@@ -744,11 +756,9 @@ class TestPrintHelp:
             "Small test config.\n"
             "\n"
             f"  {'--help':<25}  show this help message and exit\n"
-            "\n"
             f"  {'--name':<25}  the name\n"
             f"  {'':<25}  str | optional (default: 'x y')\n"
             f"  {'':<25}  env: NAME\n"
-            "\n"
             f"  {'--token':<25}  str | secret | required\n"
             f"  {'':<25}  env: TOKEN | TOKEN_FILE\n"
         )
@@ -901,18 +911,15 @@ class TestErrorReport:
         expected = (
             "Errors:\n"
             "\n"
-            "db:\n"
-            "\n"
+            "db\n"
             f"  {'--db-port':<25}  'abc' is not a valid int\n"
             f"  {'':<25}  int | optional (default: 5432)\n"
             f"  {'':<25}  env: SZOTEST_DB_PORT\n"
-            "\n"
             f"  {'--db-password':<25}  required config value not provided\n"
             f"  {'':<25}  str | secret | required\n"
             f"  {'':<25}  env: SZOTEST_DB_PASSWORD | SZOTEST_DB_PASSWORD_FILE\n"
             "\n"
-            "api:\n"
-            "\n"
+            "api\n"
             f"  {'--api-client-id':<25}  required config value not provided\n"
             f"  {'':<25}  str | required\n"
             f"  {'':<25}  env: SZOTEST_API_CLIENT_ID\n"

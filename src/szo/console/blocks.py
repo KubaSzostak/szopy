@@ -33,8 +33,6 @@ class Block:
 def print_block(block: Block, file: TextIO | None = None, width: int = 25) -> None:
     """Print one block; a header wider than ``width`` gets its own line."""
     file = sys.stdout if file is None else file
-    # One dumb rule: every block is preceded by a blank line.
-    print(file=file)
     if len(block.header) > width or not block.lines:
         # The header does not fit the column: own line, everything hangs.
         print(f"  {block.header}", file=file)
@@ -50,7 +48,7 @@ def print_header(title: str, file: TextIO | None = None) -> None:
     """Print a section header above a run of blocks: a blank line, then ``title:``."""
     file = sys.stdout if file is None else file
     print(file=file)
-    print(f"{title}:", file=file)
+    print(title, file=file)
 
 
 def print_blocks(blocks: list[Block], file: TextIO | None = None, max_width: int = 25) -> None:

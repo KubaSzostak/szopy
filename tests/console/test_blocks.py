@@ -4,17 +4,17 @@ from szo.console import blocks
 
 
 class TestPrintBlock:
-    def test_blank_line_precedes_every_block(self, capsys):
+    def test_block_starts_at_header_line(self, capsys):
         blocks.print_block(blocks.Block("--x", ["v"]), sys.stdout)
-        assert capsys.readouterr().out.startswith("\n")
+        assert capsys.readouterr().out.startswith("  --x")
 
     def test_header_fits_first_line_shared(self, capsys):
         blocks.print_block(blocks.Block("--x", ["v", "w"]), sys.stdout, width=4)
-        assert capsys.readouterr().out == "\n  --x   v\n        w\n"
+        assert capsys.readouterr().out == "  --x   v\n        w\n"
 
     def test_header_overflow_gets_own_line(self, capsys):
         blocks.print_block(blocks.Block("--very-long", ["v"]), sys.stdout, width=4)
-        assert capsys.readouterr().out == "\n  --very-long\n        v\n"
+        assert capsys.readouterr().out == "  --very-long\n        v\n"
 
     def test_file_defaults_to_stdout_at_call_time(self, capsys):
         blocks.print_block(blocks.Block("--x", ["v"]))
@@ -51,9 +51,9 @@ class TestPrintBlock:
 
 
 class TestPrintHeader:
-    def test_blank_line_then_title_with_colon(self, capsys):
+    def test_blank_line_then_title(self, capsys):
         blocks.print_header("db", sys.stdout)
-        assert capsys.readouterr().out == "\ndb:\n"
+        assert capsys.readouterr().out == "\ndb\n"
 
 
 class TestPrintBlocks:
@@ -62,7 +62,7 @@ class TestPrintBlocks:
             blocks.Block("--x", ["a"]),
             blocks.Block("--wide", ["b"]),
         ], sys.stdout)
-        assert capsys.readouterr().out == "\n  --x     a\n\n  --wide  b\n"
+        assert capsys.readouterr().out == "  --x     a\n  --wide  b\n"
 
     def test_overflowing_header_does_not_widen_column(self, capsys):
         blocks.print_blocks([
@@ -70,6 +70,6 @@ class TestPrintBlocks:
             blocks.Block("--far-too-long-header", ["b"]),
         ], sys.stdout, max_width=5)
         assert capsys.readouterr().out == (
-            "\n  --x  a\n"
-            "\n  --far-too-long-header\n       b\n"
+            "  --x  a\n"
+            "  --far-too-long-header\n       b\n"
         )

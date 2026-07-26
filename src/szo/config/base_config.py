@@ -245,8 +245,14 @@ class BaseConfig:
             nested_config._print_help_options()
 
     def _print_block_header(self, file: TextIO | None = None) -> None:
-        if self._arg_prefix:
-            blocks.print_header(self._arg_prefix.lstrip("-"), file)
+        if not self._arg_prefix:
+            return
+        doc = (type(self).__doc__ or "").strip()
+        description = doc.splitlines()[0] if doc else ""
+        blocks.print_header(self._arg_prefix.lstrip("-"), file)
+        if description:
+            print(f"  {description}", file=file)
+            print(file=file)
 
     def _print_setting_blocks(
         self,
