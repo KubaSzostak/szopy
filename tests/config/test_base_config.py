@@ -27,7 +27,7 @@ class AppConfig(BaseConfig):
     """Test app config."""
 
     verbose: bool = False
-    db: DbConfig = None
+    db: DbConfig
     api: ApiConfig
 
 
@@ -125,7 +125,7 @@ class TestSettingCollection:
 
     def test_nested_with_foreign_default_raises(self):
         class Bad(BaseConfig):
-            db: DbConfig = "not-a-config"
+            db: DbConfig = "not-a-config"  # pyright: ignore[reportAssignmentType]
 
         with pytest.raises(TypeError, match="DbConfig instance or None"):
             Bad(**NO_SOURCES)
@@ -186,7 +186,7 @@ class TestConstructor:
 
     def test_constructor_takes_no_setting_kwargs(self):
         with pytest.raises(TypeError):
-            DbConfig(password="pw")
+            DbConfig(password="pw")  # pyright: ignore[reportCallIssue]
 
     def test_list_default_not_shared_between_instances(self):
         a = ApiConfig(**NO_SOURCES)
@@ -473,7 +473,7 @@ class TestOverlay:
             host: str = "x"
 
         class Root(BaseConfig):
-            db: Sub = None
+            db: Sub
             db_host: str = "y"
 
         # db.host is declared first and wins; db_host is the intruder.
@@ -489,10 +489,10 @@ class TestOverlay:
             host: str = "x"
 
         class Mid(BaseConfig):
-            b: Leaf = None
+            b: Leaf
 
         class Root(BaseConfig):
-            a: Mid = None
+            a: Mid
             a_b_host: str = "y"
 
         config = Root(**NO_SOURCES)

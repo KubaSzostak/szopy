@@ -2,6 +2,7 @@
 
 import shlex
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal, NamedTuple
 
@@ -102,9 +103,9 @@ class SettingBuilder:
 
     def load(
         self,
-        args: dict[str, str | None],
-        environ: dict[str, str],
-        dotenv: dict[str, str],
+        args: Mapping[str, str | None],
+        environ: Mapping[str, str],
+        dotenv: Mapping[str, str],
     ) -> None:
         _ = self._set_arg_value(args) \
             or self._set_env_value(environ, "env") \
@@ -137,7 +138,7 @@ class SettingBuilder:
             annotation=self.annotation,
         )
 
-    def _set_arg_value(self, args: dict[str, str | None]) -> bool:
+    def _set_arg_value(self, args: Mapping[str, str | None]) -> bool:
         # Consider: arg_value = args.get("--foo", None)
         # It can be None for two reasons:
         # 1. the flag was not provided,
@@ -154,7 +155,7 @@ class SettingBuilder:
 
         return self._set_config_value(arg_value, "cli")
 
-    def _set_env_value(self, env: dict[str, str], env_source: SettingSource) -> bool:
+    def _set_env_value(self, env: Mapping[str, str], env_source: SettingSource) -> bool:
         if self.binding.env_name in env:
             return self._set_config_value(env.get(self.binding.env_name), env_source)
 

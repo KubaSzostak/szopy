@@ -3,6 +3,7 @@ import sys
 import typing
 
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Callable, ClassVar, Collection, TextIO
 
 from szo.config.args import parse_args
@@ -21,9 +22,9 @@ class BaseConfig:
         arg_prefix: str = "",
         prog: str | None = None,
         *,
-        args: dict[str, str | None] | None = None,
-        environ: dict[str, str] | None = None,
-        dotenv: dict[str, str] | Path | str | None = None,
+        args: Mapping[str, str | None] | None = None,
+        environ: Mapping[str, str] | None = None,
+        dotenv: Mapping[str, str] | Path | str | None = None,
         _setting_names: set[str] | None = None
     ):
         """Load every declared setting from args > environ > dotenv > class default.
@@ -77,9 +78,9 @@ class BaseConfig:
         self, 
         name: str, 
         nested_config_cls: type["BaseConfig"],
-        args: dict[str, str | None],
-        environ: dict[str, str],
-        dotenv: dict[str, str],
+        args: Mapping[str, str | None],
+        environ: Mapping[str, str],
+        dotenv: Mapping[str, str],
         setting_names: set[str]
     ) -> None:
         default = getattr(type(self), name, None)
@@ -110,9 +111,9 @@ class BaseConfig:
         self,
         name: str,
         type_hint: Any,
-        args: dict[str, str | None],
-        environ: dict[str, str],
-        dotenv: dict[str, str],
+        args: Mapping[str, str | None],
+        environ: Mapping[str, str],
+        dotenv: Mapping[str, str],
         setting_names: set[str]
     ) -> None:
         annotation = self._get_setting_annotation(name, type_hint)
@@ -131,7 +132,7 @@ class BaseConfig:
         error_block.append_error(error)
         self._errors.append(error_block)
 
-    def _load_args(self, args: dict[str, str | None] | None) -> dict[str, str | None]:
+    def _load_args(self, args: Mapping[str, str | None] | None) -> Mapping[str, str | None]:
         if args is not None:
             self._help_requested = "--help" in args
             return args
@@ -143,8 +144,8 @@ class BaseConfig:
             self._append_error("invalid command line arguments", exc)
             return {}
 
-    def _load_dotenv(self, dotenv: dict[str, str] | Path | str | None) -> dict[str, str]:
-        if isinstance(dotenv, dict):
+    def _load_dotenv(self, dotenv: Mapping[str, str] | Path | str | None) -> Mapping[str, str]:
+        if isinstance(dotenv, Mapping):
             return dotenv
         if dotenv is None:
             return {}
