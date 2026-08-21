@@ -1,4 +1,4 @@
-from szo import AzureConfig, BaseConfig, OAuthClientConfig
+from szo.config import AzureConfig, BaseConfig, OAuthClientConfig
 
 OAUTH_ARGS = {"--client-id": "cid", "--client-secret": "cs"}
 AZURE_ARGS = {**OAUTH_ARGS, "--tenant-id": "tid", "--subscription-id": "sid"}

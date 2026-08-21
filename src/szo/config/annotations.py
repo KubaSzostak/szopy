@@ -1,11 +1,40 @@
-"""Class-time setting annotations: parsing, the Secret marker, synthesized defaults."""
+"""Class-time setting annotations: parsing, the Secret marker, item selectors, synthesized defaults."""
 
 import types
 import typing
 
-from typing import Literal, NamedTuple
+from enum import Enum
+from typing import Literal, NamedTuple, TypeAlias
 
 from szo import convert
+
+
+class ItemSelector(Enum):
+    """Sentinel values selecting items positionally instead of by value.
+
+    A setting opts in by declaring selector types in its annotation union:
+    ``region_ids: list[str] | AllItems | LastItem = ItemSelector.ALL``.
+    Sources spell them with the ``@`` sigil (``--region-ids @last``,
+    ``REGION_IDS=@all``) so a selector can never be confused with plain data;
+    the application interprets what "first", "last", or "all" mean.
+    """
+
+    FIRST = "first"
+    LAST = "last"
+    ALL = "all"
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}.{self.name}"
+
+
+FirstItem: TypeAlias = Literal[ItemSelector.FIRST]
+LastItem: TypeAlias = Literal[ItemSelector.LAST]
+AllItems: TypeAlias = Literal[ItemSelector.ALL]
+
+
+def get_selectors_text(selectors: frozenset[ItemSelector]) -> str:
+    """Comma-joined source spellings in declaration order: ``@first, @last``."""
+    return ", ".join(f"@{member.value}" for member in ItemSelector if member in selectors)
 
 
 class _SecretMarker:
@@ -28,6 +57,7 @@ class SettingAnnotation(NamedTuple):
     description: str
     is_secret: bool
     is_optional: bool  # the annotation was T | None (is nullable)
+    selectors: frozenset[ItemSelector] = frozenset()  # selector types declared in the union: list[str] | AllItems
 
 
 def get_setting_metadata(setting_metadata: tuple) -> tuple[bool, str]:
@@ -61,6 +91,16 @@ def get_setting_fallback(setting_type: object, is_optional: bool) -> object:
     raise TypeError(f"unsupported config setting type {setting_type!r}")
 
 
+def _get_literal_selectors(type_hint: object) -> frozenset[ItemSelector] | None:
+    """The members of an all-selector Literal; None when it is anything else."""
+    if typing.get_origin(type_hint) is not Literal:
+        return None
+    literal_args = typing.get_args(type_hint)
+    if all(isinstance(arg, ItemSelector) for arg in literal_args):
+        return frozenset(literal_args)
+    return None
+
+
 def get_setting_annotation(type_hint: object) -> SettingAnnotation:
     origin = typing.get_origin(type_hint)
 
@@ -73,14 +113,32 @@ def get_setting_annotation(type_hint: object) -> SettingAnnotation:
             description or inner.description,
             is_secret or inner.is_secret,
             inner.is_optional,
+            inner.selectors,
         )
 
     if origin is typing.Union or origin is types.UnionType:
         union_args = typing.get_args(type_hint)
-        inner_types = [arg for arg in union_args if arg is not type(None)]
-        if len(union_args) != 2 or len(inner_types) != 1:
+        is_optional = False
+        selectors: frozenset[ItemSelector] = frozenset()
+        base_types = []
+        for union_arg in union_args:
+            arg_selectors = _get_literal_selectors(union_arg)
+            if union_arg is type(None):
+                is_optional = True
+            elif arg_selectors is not None:
+                selectors |= arg_selectors
+            else:
+                base_types.append(union_arg)
+        if len(base_types) != 1:
             raise TypeError(f"unsupported config setting type {type_hint!r}")
-        return get_setting_annotation(inner_types[0])._replace(is_optional=True)
+        inner = get_setting_annotation(base_types[0])
+        if selectors and typing.get_origin(inner.setting_type) is Literal:
+            # str choices and selectors in one setting would blur which literal is which.
+            raise TypeError(f"unsupported config setting type {type_hint!r} (choices cannot be combined with selectors)")
+        return inner._replace(
+            is_optional=inner.is_optional or is_optional,
+            selectors=inner.selectors | selectors,
+        )
 
     if not convert.supports(type_hint):
         raise TypeError(f"unsupported config setting type {type_hint!r}")

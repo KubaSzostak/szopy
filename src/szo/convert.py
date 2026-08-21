@@ -11,8 +11,8 @@ from typing import Literal
 
 from szo.text import get_choices_text
 
-_TRUE_STRINGS = {"1", "true", "yes", "on"}
-_FALSE_STRINGS = {"0", "false", "no", "off"}
+_TRUE_STRINGS = {"1", "t", "true", "yes", "on"}
+_FALSE_STRINGS = {"0", "f", "false", "no", "off"}
 
 _SCALAR_TYPES = (str, int, float, bool)
 _LIST_ITEM_TYPES = (str, int, float)

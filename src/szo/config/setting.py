@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Literal, NamedTuple
 
 from szo import convert
-from szo.config.annotations import SettingAnnotation
+from szo.config.annotations import ItemSelector, SettingAnnotation, get_selectors_text
 from szo.text import SECRET_MASK, get_choices_text, get_type_text
 
 SettingSource = Literal["cli", "env", "dotenv", "default"]
+
+SELECTOR_SIGIL = "@"
 
 
 def get_value_text(value: object) -> str:
@@ -19,6 +21,8 @@ def get_value_text(value: object) -> str:
         return "true" if value else "false"
     if isinstance(value, list):
         return ",".join(str(item) for item in value)
+    if isinstance(value, ItemSelector):
+        return f"{SELECTOR_SIGIL}{value.value}"
     return str(value)
 
 
@@ -55,6 +59,8 @@ class Setting(NamedTuple):
         choices_text = get_choices_text(self.annotation.setting_type)
         if choices_text:
             annotations.append(f"choices: {choices_text}")
+        if self.annotation.selectors:
+            annotations.append(f"selectors: {get_selectors_text(self.annotation.selectors)}")
         if self.annotation.is_secret:
             annotations.append("secret")
         if binding.is_required:
@@ -196,8 +202,21 @@ class SettingBuilder:
             self.error = "provided empty config value"
             return True
 
+        if self.annotation.selectors and config_value.startswith(SELECTOR_SIGIL):
+            return self._set_selector_value(config_value)
+
         try:
             self.value = convert.to_type(config_value, self.annotation.setting_type)
         except ValueError as exc:
             self.error = str(exc)
+        return True
+
+    def _set_selector_value(self, config_value: str) -> bool:
+        # The sigil reserves the whole value: on a selector setting, "@..." is
+        # never data, so a typo fails loudly instead of loading as a value.
+        for selector in self.annotation.selectors:
+            if config_value == f"{SELECTOR_SIGIL}{selector.value}":
+                self.value = selector
+                return True
+        self.error = f"{config_value!r} is not a valid selector (use {get_selectors_text(self.annotation.selectors)})"
         return True

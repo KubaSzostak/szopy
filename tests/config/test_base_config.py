@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 import pytest
 
-from szo import BaseConfig, Secret
+from szo.config import BaseConfig, Secret
 from szo.config.args import parse_args
 from szo import convert
 from szo.config.annotations import get_setting_annotation

@@ -16,7 +16,7 @@
 
 from typing import Annotated, Literal
 
-from szo import BaseConfig, PostgresConfig, Secret
+from szo.config import BaseConfig, PostgresConfig, Secret, ItemSelector, FirstItem, LastItem, AllItems
 
 
 class ApiConfig(BaseConfig):
@@ -37,6 +37,7 @@ class AppConfig(BaseConfig):
         dbname="nested_db",
         user="nested_user")
     api: ApiConfig
+    record_ids: list[str] | FirstItem | LastItem | AllItems = ItemSelector.ALL
 
 
 def main() -> None:

@@ -1,4 +1,4 @@
-from szo import BaseConfig, PostgresConfig
+from szo.config import BaseConfig, PostgresConfig
 from szo.config.postgres import _quote_conninfo_value
 
 

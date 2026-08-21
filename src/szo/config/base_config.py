@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Literal, TextIO
 
 from szo.config.args import parse_args
 from szo.config.setting import Setting, SettingBinding, SettingBuilder
-from szo.config.annotations import SettingAnnotation, get_setting_annotation, get_setting_fallback
+from szo.config.annotations import ItemSelector, SettingAnnotation, get_selectors_text, get_setting_annotation, get_setting_fallback
 from szo.config.dotenv import parse_dotenv
 from szo.console import blocks
 from szo.text import get_choices_text, get_type_text
@@ -19,8 +19,19 @@ from szo.text import get_choices_text, get_type_text
 _RESERVED_SETTING_NAMES = frozenset({"env_prefix", "arg_prefix", "prog", "args", "environ", "dotenv"})
 
 
-def _get_default_error(value: object, setting_type: object, is_optional: bool) -> str | None:
+def _get_default_error(
+    value: object,
+    setting_type: object,
+    is_optional: bool,
+    selectors: frozenset[ItemSelector] = frozenset()
+) -> str | None:
     """None when the typed value fits the setting type; the error text otherwise."""
+    if isinstance(value, ItemSelector):
+        if value in selectors:
+            return None
+        if selectors:
+            return f"{value!r} is not one of the declared selectors: {get_selectors_text(selectors)}"
+        return f"{value!r} is not a valid {get_type_text(setting_type)} (no selectors declared)"
     if value is None:
         return None if is_optional else f"None is not a valid {get_type_text(setting_type)}"
     if typing.get_origin(setting_type) is Literal:
@@ -233,7 +244,7 @@ class BaseConfig:
             # A **defaults value replaces the class default, so the setting is
             # no longer required and --help shows the replacement value.
             fallback = self._defaults[name]
-            error = _get_default_error(fallback, annotation.setting_type, annotation.is_optional)
+            error = _get_default_error(fallback, annotation.setting_type, annotation.is_optional, annotation.selectors)
             if error:
                 raise TypeError(f"{type(self).__name__}.{name}: default {error}")
             has_default_value = True

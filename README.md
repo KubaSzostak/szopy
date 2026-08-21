@@ -21,7 +21,7 @@ attribute access:
 
 ```python
 from typing import Annotated
-from szo import BaseConfig, Secret
+from szo.config import BaseConfig, Secret
 
 
 class DbConfig(BaseConfig):
