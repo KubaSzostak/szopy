@@ -117,7 +117,7 @@ or
 cd /tmp
 uv venv verify
 source verify/bin/activate
-uv pip install szo
+uv pip install --refresh szo
 python -c "import szo; print(szo.__version__)"
 deactivate
 rm -rf /tmp/verify
