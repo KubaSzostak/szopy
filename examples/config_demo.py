@@ -31,7 +31,11 @@ class AppConfig(BaseConfig):
     verbose: bool = False
     region: Literal["admin", "postcode", "cresta", "nuts"]
 
-    db: PostgresConfig = PostgresConfig(env_prefix="CUSTOM_NESTED_PREFIX", arg_prefix="--custom-nested-prefix")
+    db: PostgresConfig = PostgresConfig(
+        env_prefix="CUSTOM_NESTED_PREFIX", 
+        arg_prefix="--custom-nested-prefix",
+        dbname="nested_db",
+        user="nested_user")
     api: ApiConfig
 
 

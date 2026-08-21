@@ -4,13 +4,47 @@ import typing
 
 from pathlib import Path
 from collections.abc import Mapping
-from typing import Any, Callable, ClassVar, Collection, TextIO
+from typing import Any, Callable, ClassVar, Collection, Literal, TextIO
 
 from szo.config.args import parse_args
 from szo.config.setting import Setting, SettingBinding, SettingBuilder
 from szo.config.annotations import SettingAnnotation, get_setting_annotation, get_setting_fallback
 from szo.config.dotenv import parse_dotenv
 from szo.console import blocks
+from szo.text import get_choices_text, get_type_text
+
+# Keep in sync with the BaseConfig.__init__ parameters: a setting with one of
+# these names could never receive its ``**defaults`` value (the named parameter
+# would swallow it silently), so such setting names are rejected outright.
+_RESERVED_SETTING_NAMES = frozenset({"env_prefix", "arg_prefix", "prog", "args", "environ", "dotenv"})
+
+
+def _get_default_error(value: object, setting_type: object, is_optional: bool) -> str | None:
+    """None when the typed value fits the setting type; the error text otherwise."""
+    if value is None:
+        return None if is_optional else f"None is not a valid {get_type_text(setting_type)}"
+    if typing.get_origin(setting_type) is Literal:
+        if value in typing.get_args(setting_type):
+            return None
+        return f"{value!r} is not one of: {get_choices_text(setting_type)}"
+    if typing.get_origin(setting_type) is list:
+        if not isinstance(value, list):
+            return f"{value!r} is not a valid {get_type_text(setting_type)}"
+        item_type = typing.get_args(setting_type)[0]
+        for index, item in enumerate(value, start=1):
+            if _get_default_error(item, item_type, is_optional=False):
+                return f"{item!r} is not a valid {item_type.__name__} (item {index} of list)"
+        return None
+    if setting_type is bool:
+        is_valid = isinstance(value, bool)
+    elif setting_type is int:
+        # bool is an int subclass; a True default for an int setting is a mistake.
+        is_valid = isinstance(value, int) and not isinstance(value, bool)
+    elif setting_type is float:
+        is_valid = isinstance(value, (int, float)) and not isinstance(value, bool)
+    else:
+        is_valid = isinstance(value, str)
+    return None if is_valid else f"{value!r} is not a valid {get_type_text(setting_type)}"
 
 
 class BaseConfig:
@@ -25,9 +59,10 @@ class BaseConfig:
         args: Mapping[str, str | None] | None = None,
         environ: Mapping[str, str] | None = None,
         dotenv: Mapping[str, str] | Path | str | None = None,
-        _setting_names: set[str] | None = None
+        _setting_names: set[str] | None = None,
+        **defaults: Any
     ):
-        """Load every declared setting from args > environ > dotenv > class default.
+        """Load every declared setting from args > environ > dotenv > default.
 
         - ``env_prefix``: prefix for env variable names, no trailing underscore: ``"DB"`` -> ``DB_HOST``.
         - ``arg_prefix``: prefix for argument names, including the dashes: ``"--db"`` -> ``--db-host``.
@@ -36,6 +71,11 @@ class BaseConfig:
         - ``environ``: environment variables; ``None`` uses ``os.environ``.
         - ``dotenv``: already-parsed mapping or a ``.env`` file path (a missing
           file is ignored); ``None`` reads no dotenv file.
+        - ``**defaults``: replacement defaults for this class's own settings, as
+          typed values: ``PostgresConfig(host="db.internal")``. A setting
+          defaulted here is no longer required; args/environ/dotenv still
+          override it. Unknown or nested-section names and invalid values
+          raise ``TypeError``.
         """
         if env_prefix and not env_prefix.isidentifier():
             raise ValueError(f"env_prefix {env_prefix!r} is not a valid identifier")
@@ -44,6 +84,7 @@ class BaseConfig:
         self._env_prefix = env_prefix
         self._arg_prefix = arg_prefix
         self._prog = prog if prog is not None else os.path.basename(sys.argv[0])
+        self._defaults = defaults
         self._settings: dict[str, Setting] = {}
         self._nested_configs: dict[str, BaseConfig] = {}
         self._errors: list[blocks.Block] = []
@@ -53,17 +94,28 @@ class BaseConfig:
         dotenv = self._load_dotenv(dotenv)
         # `or set()` would discard a shared-but-still-empty set: empty sets are falsy.
         setting_names = set() if _setting_names is None else _setting_names
-        
+
+        handled_names: set[str] = set()
         type_hints = typing.get_type_hints(type(self), include_extras=True)
         for name, type_hint in type_hints.items():
             if name.startswith("_"):
                 continue
             if type_hint is ClassVar or typing.get_origin(type_hint) is ClassVar:
                 continue
+            if name in _RESERVED_SETTING_NAMES:
+                raise TypeError(
+                    f"{type(self).__name__}.{name}: setting name collides with a BaseConfig constructor parameter"
+                )
+            handled_names.add(name)
             if isinstance(type_hint, type) and issubclass(type_hint, BaseConfig):
                 self._init_nested_config(name, type_hint, args, environ, dotenv, setting_names)
             else:
                 self._init_setting(name, type_hint, args, environ, dotenv, setting_names)
+
+        unknown_defaults = [key for key in defaults if key not in handled_names]
+        if unknown_defaults:
+            names = ", ".join(repr(key) for key in unknown_defaults)
+            raise TypeError(f"{type(self).__name__}() got unexpected setting defaults: {names}")
 
     def __repr__(self) -> str:
         parts = []
@@ -83,6 +135,11 @@ class BaseConfig:
         dotenv: Mapping[str, str],
         setting_names: set[str]
     ) -> None:
+        if name in self._defaults:
+            raise TypeError(
+                f"{type(self).__name__}.{name} is a nested config; "
+                f"pass its defaults to the {nested_config_cls.__name__} constructor instead"
+            )
         default = getattr(type(self), name, None)
         if isinstance(default, nested_config_cls):
             # Allow the consumer to provide a pre-constructed nested config instance.
@@ -172,8 +229,17 @@ class BaseConfig:
             raise TypeError(f"{type(self).__name__}.{name}: {exc}") from None
 
     def _get_setting_binding(self, name: str, annotation: SettingAnnotation) -> SettingBinding:
-        has_default_value = hasattr(type(self), name)
-        fallback = getattr(type(self), name) if has_default_value else get_setting_fallback(annotation.setting_type, annotation.is_optional)
+        if name in self._defaults:
+            # A **defaults value replaces the class default, so the setting is
+            # no longer required and --help shows the replacement value.
+            fallback = self._defaults[name]
+            error = _get_default_error(fallback, annotation.setting_type, annotation.is_optional)
+            if error:
+                raise TypeError(f"{type(self).__name__}.{name}: default {error}")
+            has_default_value = True
+        else:
+            has_default_value = hasattr(type(self), name)
+            fallback = getattr(type(self), name) if has_default_value else get_setting_fallback(annotation.setting_type, annotation.is_optional)
         return SettingBinding(
             arg_name=self._get_arg_name(name),
             env_name=self._get_env_name(name),

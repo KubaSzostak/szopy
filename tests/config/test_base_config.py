@@ -184,10 +184,6 @@ class TestConstructor:
         assert [setting.name for setting in db.get_settings() if setting.error] == ["password"]
         assert db.host == "localhost"
 
-    def test_constructor_takes_no_setting_kwargs(self):
-        with pytest.raises(TypeError):
-            DbConfig(password="pw")  # pyright: ignore[reportCallIssue]
-
     def test_list_default_not_shared_between_instances(self):
         a = ApiConfig(**NO_SOURCES)
         b = ApiConfig(**NO_SOURCES)
@@ -199,6 +195,102 @@ class TestConstructor:
         assert "pw" not in repr(db)
         assert "**********" in repr(db)
         assert "localhost" in repr(db)
+
+
+# --- Constructor **defaults ---------------------------------------------------
+
+
+class TestConstructorDefaults:
+    def test_kwarg_replaces_class_default(self):
+        db = DbConfig(host="db.internal", password="pw", **NO_SOURCES)
+        assert db.host == "db.internal"
+        assert db._settings["host"].source == "default"
+
+    def test_kwarg_makes_required_optional(self):
+        db = DbConfig(password="pw", **NO_SOURCES)
+        assert db.password == "pw"
+        assert db.is_valid() is True
+        assert db._settings["password"].binding.is_required is False
+        assert db._settings["password"].source == "default"
+
+    def test_class_default_kept_when_no_kwarg(self):
+        db = DbConfig(password="pw", **NO_SOURCES)
+        assert db.host == "localhost"
+
+    def test_sources_still_override_kwarg_default(self):
+        db = DbConfig(host="kwarg", password="pw", args={"--host": "cli"}, environ={}, dotenv={})
+        assert db.host == "cli"
+        db = DbConfig(host="kwarg", password="pw", args={}, environ={"HOST": "env"}, dotenv={})
+        assert db.host == "env"
+        db = DbConfig(host="kwarg", password="pw", args={}, environ={}, dotenv={"HOST": "dot"})
+        assert db.host == "dot"
+
+    def test_help_shows_kwarg_default(self, capsys):
+        DbConfig(host="db.internal", **NO_SOURCES).print_help()
+        out = capsys.readouterr().out
+        assert "str | optional (default: db.internal)" in out
+
+    def test_help_masks_secret_kwarg_default(self, capsys):
+        DbConfig(password="sekret", **NO_SOURCES).print_help()
+        out = capsys.readouterr().out
+        assert "str | secret | optional" in out
+        assert "**********" in out
+        assert "sekret" not in out
+
+    def test_list_kwarg_default(self):
+        api = ApiConfig(client_id="cid", tags=["x", "y"], **NO_SOURCES)
+        assert api.tags == ["x", "y"]
+
+    def test_unknown_name_raises(self):
+        with pytest.raises(TypeError, match="hostt"):
+            DbConfig(hostt="x", **NO_SOURCES)
+
+    def test_nested_config_name_raises(self):
+        with pytest.raises(TypeError, match="pass its defaults to the DbConfig constructor"):
+            AppConfig(db={"host": "x"}, **NO_SOURCES)
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(TypeError, match="'5433' is not a valid int"):
+            DbConfig(port="5433", **NO_SOURCES)
+        with pytest.raises(TypeError, match="True is not a valid int"):
+            DbConfig(port=True, **NO_SOURCES)
+        with pytest.raises(TypeError, match="None is not a valid str"):
+            DbConfig(host=None, **NO_SOURCES)
+
+    def test_list_item_type_checked(self):
+        with pytest.raises(TypeError, match=r"item 1 of list"):
+            ApiConfig(client_id="cid", tags=[1], **NO_SOURCES)
+
+    def test_int_accepted_for_float(self):
+        class Numeric(BaseConfig):
+            ratio: float = 0.5
+
+        assert Numeric(ratio=2, **NO_SOURCES).ratio == 2
+
+    def test_literal_kwarg_checked_against_choices(self):
+        assert RegionConfig(region_type="nuts", **NO_SOURCES).region_type == "nuts"
+        with pytest.raises(TypeError, match="not one of: admin, postcode"):
+            RegionConfig(region_type="bogus", **NO_SOURCES)
+
+    def test_optional_accepts_none(self):
+        config = OptionalConfig(row_count=None, **NO_SOURCES)
+        assert config.row_count is None
+        assert config._settings["row_count"].source == "default"
+
+    def test_reserved_setting_name_raises(self):
+        class BadName(BaseConfig):
+            prog: str = "x"
+
+        with pytest.raises(TypeError, match="constructor parameter"):
+            BadName(**NO_SOURCES)
+
+    def test_prebuilt_nested_with_kwarg_defaults(self):
+        class WithMine(BaseConfig):
+            db: DbConfig = DbConfig(host="db.internal", password="pw", **NO_SOURCES)
+
+        config = WithMine(**NO_SOURCES)
+        assert config.db.host == "db.internal"
+        assert config.is_valid() is True
 
 
 # --- Optional settings ---------------------------------------------------------
