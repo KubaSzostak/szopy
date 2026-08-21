@@ -1,10 +1,8 @@
 import re
 from dataclasses import dataclass
 from typing import LiteralString, cast
-from psycopg import sql
 
 _IDENT_RE = re.compile(r"[a-z_][a-z0-9_]*")  # PostgreSQL unquoted-identifier safe subset
-_QUOTED_IDENT_RE = re.compile(r"\"(?:[^\"\x00]|\"\")+\"")
 
 # PostgreSQL 18's RESERVED_KEYWORD and TYPE_FUNC_NAME_KEYWORD categories are
 # excluded from ColId, which is required for the schema in schema.relation.
@@ -25,45 +23,31 @@ _PG_INVALID_SCHEMA_KEYWORDS: frozenset[str] = frozenset(
 )
 
 
-def quote_ident(name: str) -> LiteralString:
-    if not name or "\x00" in name:
-        raise ValueError(f"not a valid PostgreSQL identifier: `{name}`")
-    truncated = name.encode("utf-8")[:63].decode("utf-8", errors="ignore")
-    escaped = truncated.replace("\"", "\"\"")
-    return cast(LiteralString, f"\"{escaped}\"")
-
-
 def normalize_ident(name: str) -> LiteralString:
-    """Normalize a quoted or unquoted PostgreSQL identifier.
+    """Normalize an unquoted PostgreSQL identifier the way the server would.
 
-    Quoted identifiers retain their spelling. Unquoted identifiers mirror the
-    server: they are case-folded to lowercase (TableName -> tablename) and
-    truncated to 63 bytes. Raises ValueError for invalid identifier syntax.
+    Mirrors the server's unquoted-identifier handling: names are case-folded
+    to lowercase (TableName -> tablename) and truncated to 63 bytes. Anything
+    the safe unquoted subset cannot express -- quotes, spaces, dots, leading
+    digits, non-ASCII -- raises ValueError.
     """
-    if name.startswith('"') and name.endswith('"'):
-        if _QUOTED_IDENT_RE.fullmatch(name):
-            return cast(LiteralString, name)
-        raise ValueError(f"not a valid quoted PostgreSQL identifier: `{name}`")
-    
-    if not name.isascii():
-        return quote_ident(name)
-    normalized = name.lower()
+    # lower() only ASCII input: e.g. the Kelvin sign would fold to a plain `k`.
+    normalized = name.lower() if name.isascii() else name
     if not _IDENT_RE.fullmatch(normalized):
-        return quote_ident(name)
+        raise ValueError(f"not a valid unquoted PostgreSQL identifier: `{name}`")
     return cast(LiteralString, normalized[:63])  # only ASCII passes, so chars == bytes
 
 
 def normalize_schema(name: str) -> LiteralString:
-    """Normalize a PostgreSQL schema name that is safe to use unquoted.
+    """Normalize a PostgreSQL schema name, rejecting what the server rejects.
 
     Raises ValueError when the normalized name is a keyword PostgreSQL does
-    not accept as the first component of an unquoted qualified relation name.
+    not accept as the first component of an unquoted qualified relation name:
+    CREATE SCHEMA select is a syntax error, while between is accepted.
     """
     normalized = normalize_ident(name)
-    if normalized.startswith('"'):
-        return normalized
     if normalized in _PG_INVALID_SCHEMA_KEYWORDS:
-        return quote_ident(name)  # all -> "all"
+        raise ValueError(f"PostgreSQL keyword is not a valid unquoted schema name: `{name}`")
     return normalized
 
 
@@ -108,8 +92,3 @@ class Fqrn:
     def full_name(self) -> LiteralString:
         """The validated `schema.relation` SQL identifier tokens."""
         return cast(LiteralString, f"{self.schema}.{self.relation}")
-
-    @property
-    def ident(self) -> sql.Identifier:
-        """psycopg Identifier for sql.SQL composition; always rendered quoted."""
-        return sql.Identifier(self.schema, self.relation)
