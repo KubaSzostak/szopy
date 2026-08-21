@@ -1,6 +1,6 @@
 # szo
 
-Building blocks for Python applications (3.10+):
+Building blocks for Python applications (3.11+):
 
 - **`szo.config`** — typed application configuration loaded from command-line
   arguments, environment variables, and `.env` files. No argparse, no pydantic.
@@ -127,5 +127,5 @@ rm -rf /tmp/verify
 
 - Pushing to `main` does not publish. Only tags do.
 - The tag (`v0.0.3`) and `__version__` (`0.0.3`) must match — the workflow
-  verifies this and runs the tests (Python 3.10/3.12/3.14) before building;
+  verifies this and runs the tests (Python 3.11/3.12/3.14) before building;
   a mismatch or a test failure aborts the release.

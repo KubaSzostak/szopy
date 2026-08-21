@@ -7,9 +7,18 @@ from typing import Literal, NamedTuple
 
 from szo import convert
 from szo.config.annotations import SettingAnnotation
-from szo.console.text import SECRET_MASK, get_value_text, get_choices_text, get_type_text
+from szo.text import SECRET_MASK, get_choices_text, get_type_text
 
 SettingSource = Literal["cli", "env", "dotenv", "default"]
+
+
+def get_value_text(value: object) -> str:
+    """Source-form text of a value: what a consumer could type to provide it."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, list):
+        return ",".join(str(item) for item in value)
+    return str(value)
 
 
 class SettingBinding(NamedTuple):

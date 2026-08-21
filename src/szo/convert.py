@@ -9,7 +9,7 @@ import typing
 
 from typing import Literal
 
-from szo.console.text import get_choices_text
+from szo.text import get_choices_text
 
 _TRUE_STRINGS = {"1", "true", "yes", "on"}
 _FALSE_STRINGS = {"0", "false", "no", "off"}

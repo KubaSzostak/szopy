@@ -1,7 +1,4 @@
 """Ready-made PostgreSQL connection config for psycopg (v3) applications.
-
-szo does not import psycopg: ``PostgresConfig`` only produces connection
-parameters in the shapes ``psycopg.connect()`` accepts.
 """
 
 from typing import Annotated, Literal, TypeAlias

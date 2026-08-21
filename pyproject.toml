@@ -7,13 +7,15 @@ name = "szo"
 dynamic = ["version"] # src/szo/__init__.py
 description = "Reusable building blocks"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Kuba Szostak" }]
-dependencies = []
+dependencies = [
+    "psycopg>=3.1,<4",
+]
 
 [project.urls]
-Homepage = "https://github.com/KubaSzostak/szopy"
+Homepage = "https://github.com/kubaszostak/szopy"
 
 [dependency-groups]
 dev = ["pytest"]
