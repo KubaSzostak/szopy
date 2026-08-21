@@ -1,9 +1,7 @@
 import re
 from dataclasses import dataclass
-from typing import cast
+from typing import LiteralString, cast
 from psycopg import sql
-
-from szo._compatibility import LiteralString
 
 _IDENT_RE = re.compile(r"[a-z_][a-z0-9_]*")  # PostgreSQL unquoted-identifier safe subset
 _QUOTED_IDENT_RE = re.compile(r"\"(?:[^\"\x00]|\"\")+\"")
